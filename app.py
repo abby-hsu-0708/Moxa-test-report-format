@@ -123,12 +123,13 @@ def process_excel(data_bytes, template_bytes=None):
     # 先對現有 columns 進行清理與去空白
     df.columns = df.columns.astype(str).str.strip()
     
-    # 健壯的 Header 識別：如果 'SN' (忽略大小寫與空白) 不在 Columns 中，但第一列的值含有 'SN' 或 'Part_NO'
+    # 健壯的 Header 識別：如果 'SN' 或是 '序號' 等關鍵字不在 Columns 中，但第一列有這些欄位
     columns_upper = [c.upper() for c in df.columns]
-    if 'SN' not in columns_upper and len(df) > 0:
+    has_header_keywords = any(kw in columns_upper for kw in ['SN', 'PART_NO', '序號', '料號'])
+    if not has_header_keywords and len(df) > 0:
         first_row_vals = df.iloc[0].astype(str).str.strip().tolist()
         first_row_vals_upper = [v.upper() for v in first_row_vals]
-        if 'SN' in first_row_vals_upper or 'PART_NO' in first_row_vals_upper:
+        if any(kw in first_row_vals_upper for kw in ['SN', 'PART_NO', '序號', '料號']):
             # 使用第一列作為新的 Columns，並去除空白
             df.columns = first_row_vals
             df = df[1:].reset_index(drop=True)
@@ -136,26 +137,41 @@ def process_excel(data_bytes, template_bytes=None):
     # 再次清理與去空白
     df.columns = df.columns.astype(str).str.strip()
     
-    # 建立一個大小寫無關的對應 Dictionary
+    # 建立一個大小寫與空白無關的對應 Dictionary
     column_mapping = {}
     for col in df.columns:
         column_mapping[col.upper()] = col
         
-    # 檢查必要欄位是否存在 (不分大小寫與空白)
-    required_cols_upper = ['SN', 'PART_NO', 'PART_DESC', 'SHIP_NO', 'CUSTOMER', 'SHIPPINGDATE']
-    missing_cols = [col for col in required_cols_upper if col not in column_mapping]
-    if missing_cols:
-        raise ValueError(f"輸入檔案缺少以下必要欄位: {', '.join([c.title() for c in missing_cols])}")
-        
-    # 將欄位名稱重新命名為內部標準格式，以防大小寫不一致導致後續報錯
-    rename_dict = {
-        column_mapping['SN']: 'SN',
-        column_mapping['PART_NO']: 'Part_NO',
-        column_mapping['PART_DESC']: 'Part_DESC',
-        column_mapping['SHIP_NO']: 'Ship_NO',
-        column_mapping['CUSTOMER']: 'Customer',
-        column_mapping['SHIPPINGDATE']: 'ShippingDate'
+    # 定義每個標準欄位的中文與英文別名列表 (全部轉為大寫並去除空白匹配)
+    aliases = {
+        'SN': ['SN', '序號'],
+        'Part_NO': ['PART_NO', '料號'],
+        'Part_DESC': ['PART_DESC', 'MODEL', 'MODEL_NAME', 'MODEL NAME', '品名'],
+        'Ship_NO': ['SHIP_NO', '出貨單號'],
+        'Customer': ['CUSTOMER', '客戶'],
+        'ShippingDate': ['SHIPPINGDATE', 'SHIPPING_DATE', '出貨日期', '日期']
     }
+    
+    # 開始進行同義字對齊與檢查
+    rename_dict = {}
+    missing_cols = []
+    
+    for std_name, alias_list in aliases.items():
+        found_col = None
+        for alias in alias_list:
+            alias_upper = alias.upper()
+            if alias_upper in column_mapping:
+                found_col = column_mapping[alias_upper]
+                break
+        if found_col is not None:
+            rename_dict[found_col] = std_name
+        else:
+            missing_cols.append(std_name)
+            
+    if missing_cols:
+        raise ValueError(f"輸入檔案缺少以下必要欄位（支援中英文對照）: {', '.join(missing_cols)}")
+        
+    # 重新命名為標準名稱，以防中英文混用或大小寫不一致導致後續報錯
     df = df.rename(columns=rename_dict)
         
     # 處理出貨日期轉換為字串排序與分組
