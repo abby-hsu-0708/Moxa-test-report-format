@@ -121,13 +121,9 @@ with st.container():
     )
     
     if email_input.strip():
-        lines = email_input.split('\n')
-        # 僅提取長度為 8 至 15 的純英數字，去除前後空白
-        extracted_sns = []
-        for line in lines:
-            cleaned = line.strip()
-            if re.match(r'^[a-zA-Z0-9]{8,15}$', cleaned):
-                extracted_sns.append(cleaned)
+        # 使用正則表達式在整段文字中尋找所有獨立的 8-15 碼英數字 SN
+        # \b 代表單字邊界，可自動識別以空格、逗號、分號、換行等分隔之 SN
+        extracted_sns = re.findall(r'\b[a-zA-Z0-9]{8,15}\b', email_input)
         
         if extracted_sns:
             cleaned_sn_text = "\n".join(extracted_sns)
