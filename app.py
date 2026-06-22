@@ -104,6 +104,13 @@ with st.sidebar:
     3. **SN 欄位上限**：同一列最多填入 5 個 SN (顯示於 Q 至 U 欄)。若超出 5 個，則將剩餘的 SN 分拆至下一列展示（左側所有欄位資訊均會重複填入，以利後續資料分析）。
     """)
 
+# 初始化步驟零輸入框的 Session State
+if "sn_email_input" not in st.session_state:
+    st.session_state.sn_email_input = ""
+
+def clear_sn_input():
+    st.session_state.sn_email_input = ""
+
 # 🔍 步驟零：電子郵件 SN 自動提取整理
 st.subheader("🔍 步驟零：電子郵件 SN 自動提取整理")
 with st.container():
@@ -119,6 +126,9 @@ with st.container():
         placeholder="例如：\nMODEL : EDS-518E-4GTXSFP\nTBFED1009476\nTBFED1009482\n\nMODEL : IKS-G6524A-4GTXSFP\nTBFAD1056579\n...",
         key="sn_email_input"
     )
+    
+    # 建立清除按鈕
+    st.button("🗑️ 清除已輸入文字", on_click=clear_sn_input)
     
     if email_input.strip():
         # 使用正則表達式在整段文字中尋找所有獨立的 8-15 碼英數字 SN
