@@ -4,6 +4,8 @@ import openpyxl
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 import os
 import io
+import re
+import html
 
 # 設定網頁標題與外觀
 st.set_page_config(
@@ -101,6 +103,103 @@ with st.sidebar:
     2. **換列條件**：同一個 Model 若出貨單號 (Ship_NO) 或出貨日期 (ShippingDate) 不同，則分拆至另一列。
     3. **SN 欄位上限**：同一列最多填入 5 個 SN (顯示於 Q 至 U 欄)。若超出 5 個，則將剩餘的 SN 分拆至下一列展示（左側所有欄位資訊均會重複填入，以利後續資料分析）。
     """)
+
+# 🔍 步驟零：電子郵件 SN 自動提取整理
+st.subheader("🔍 步驟零：電子郵件 SN 自動提取整理")
+with st.container():
+    st.markdown("""
+    <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.2rem; margin-bottom: 1rem;">
+        <p style="font-weight: 600; color: #0F172A; margin: 0 0 0.5rem 0; font-size: 0.95rem;">請在此貼上包含多個 Model 的電子郵件或雜訊文字。系統會自動過濾 Model 名稱與雜訊，僅提取出純 SN：</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    email_input = st.text_area(
+        "貼上電子郵件或雜亂文字：",
+        height=200,
+        placeholder="例如：\nMODEL : EDS-518E-4GTXSFP\nTBFED1009476\nTBFED1009482\n\nMODEL : IKS-G6524A-4GTXSFP\nTBFAD1056579\n...",
+        key="sn_email_input"
+    )
+    
+    if email_input.strip():
+        lines = email_input.split('\n')
+        # 僅提取長度為 8 至 15 的純英數字，去除前後空白
+        extracted_sns = []
+        for line in lines:
+            cleaned = line.strip()
+            if re.match(r'^[a-zA-Z0-9]{8,15}$', cleaned):
+                extracted_sns.append(cleaned)
+        
+        if extracted_sns:
+            cleaned_sn_text = "\n".join(extracted_sns)
+            
+            st.markdown("##### ✨ 整理後的 SN 列表")
+            
+            # 使用 st.code 展示整理後的 SN 列表，不帶空行，並支持原生複製
+            st.code(cleaned_sn_text, language="text")
+            
+            escaped_text = html.escape(cleaned_sn_text)
+            
+            # 渲染一個外觀非常現代、獨立的「複製整理後的 SN 列表」按鈕
+            copy_button_html = f"""
+            <div style="margin-top: 10px; margin-bottom: 15px;">
+                <textarea id="sn-clipboard-data" style="display:none;">{escaped_text}</textarea>
+                <button onclick="copyToClipboard()" style="
+                    background: linear-gradient(135deg, #00C6FF 0%, #0072FF 100%);
+                    color: white;
+                    border: none;
+                    padding: 10px 22px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-weight: 600;
+                    font-size: 14px;
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                    transition: all 0.2s ease;
+                    font-family: system-ui, -apple-system, sans-serif;
+                " onmouseover="this.style.opacity=0.9" onmouseout="this.style.opacity=1.0">
+                    📋 複製整理後的 SN 列表
+                </button>
+                <span id="copy-success-msg" style="margin-left: 12px; color: #10B981; font-weight: 600; display: none; font-family: system-ui, -apple-system, sans-serif; font-size: 14px;">✓ 已複製到剪貼簿！</span>
+            </div>
+            <script>
+            function copyToClipboard() {{
+                const copyText = document.getElementById("sn-clipboard-data");
+                if (navigator.clipboard && window.isSecureContext) {{
+                    navigator.clipboard.writeText(copyText.value).then(function() {{
+                        showToast();
+                    }}).catch(function(err) {{
+                        fallbackCopy(copyText);
+                    }});
+                }} else {{
+                    fallbackCopy(copyText);
+                }}
+            }}
+            function fallbackCopy(copyText) {{
+                const tempTextArea = document.createElement("textarea");
+                tempTextArea.value = copyText.value;
+                document.body.appendChild(tempTextArea);
+                tempTextArea.select();
+                try {{
+                    document.execCommand("copy");
+                    showToast();
+                }} catch (err) {{
+                    alert("無法複製，請手動複製程式碼區塊中的 SN。");
+                }}
+                document.body.removeChild(tempTextArea);
+            }}
+            function showToast() {{
+                const msg = document.getElementById("copy-success-msg");
+                msg.style.display = "inline";
+                setTimeout(function() {{
+                    msg.style.display = "none";
+                }}, 2000);
+            }}
+            </script>
+            """
+            st.components.v1.html(copy_button_html, height=65, scrolling=False)
+        else:
+            st.warning("⚠️ 未在輸入內容中偵測到符合格式的 SN。請確認每行是否為純英數且長度介於 8 至 15 碼。")
+            
+st.markdown("---")
 
 # 主內容區：上傳 SN Data 檔案
 st.subheader("📥 步驟一：上傳 SN Data 檔案")
