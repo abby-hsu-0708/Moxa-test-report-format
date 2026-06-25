@@ -108,164 +108,150 @@ with st.sidebar:
 st.subheader("🔍 步驟零：電子郵件 SN 自動提取整理")
 
 # 使用全前端 HTML/JS 實作，以解決 Streamlit 必須按 Ctrl+Enter 才能生效的技術限制。
-# 這樣一來，使用者不論打字或貼上文字，下方都會在一瞬間即時顯示整理後的 SN，不打斷中文輸入法。
+# 採用左右 Flex 並排佈局，既縮減了上下空白，也能確保複製按鈕不會被截斷。
 step_zero_html = r"""
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap');
-        
         body {
-            font-family: 'Inter', 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: transparent;
             margin: 0;
             padding: 0;
-            color: #0F172A;
+            color: #31333F;
             overflow: hidden;
         }
-        
-        .info-card {
-            background-color: #F8FAFC; 
-            border: 1px solid #E2E8F0; 
-            border-radius: 12px; 
-            padding: 1.2rem; 
-            margin-bottom: 1rem;
+        .container {
+            box-sizing: border-box;
         }
-        
-        .info-text {
-            font-weight: 600; 
-            color: #0F172A; 
-            margin: 0 0 0.5rem 0; 
-            font-size: 0.95rem;
+        .header-text {
+            font-size: 14px;
+            color: #31333F;
+            margin-bottom: 10px;
+            line-height: 1.4;
         }
-        
+        .main-layout {
+            display: flex;
+            gap: 16px;
+        }
+        .column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
         .label-text {
-            font-size: 14px; 
-            font-weight: 500; 
-            color: #334155; 
-            display: block; 
-            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #31333F;
+            margin-bottom: 6px;
         }
-        
         .text-area {
             width: 100%;
-            height: 180px;
-            padding: 12px;
+            height: 125px;
+            padding: 10px 12px;
             border-radius: 8px;
-            border: 1px solid #CBD5E1;
+            border: 1px solid rgba(49, 51, 63, 0.2);
             font-family: inherit;
             font-size: 14px;
             box-sizing: border-box;
             resize: none;
             outline: none;
-            transition: border-color 0.2s, box-shadow 0.2s;
+            transition: border-color 0.2s;
+            background-color: #FFFFFF;
         }
-        
         .text-area:focus {
             border-color: #0072FF;
-            box-shadow: 0 0 0 3px rgba(0, 114, 255, 0.15);
+            box-shadow: 0 0 0 1px #0072FF;
         }
-        
-        .button-row {
-            margin-top: 10px;
-            margin-bottom: 20px;
-            display: flex;
-            gap: 12px;
-        }
-        
         .btn-clear {
-            background-color: #F1F5F9;
-            color: #475569;
-            border: 1px solid #E2E8F0;
-            padding: 8px 16px;
+            background-color: #FFFFFF;
+            color: #31333F;
+            border: 1px solid rgba(49, 51, 63, 0.2);
+            padding: 5px 12px;
             border-radius: 6px;
             cursor: pointer;
-            font-weight: 600;
-            font-size: 13px;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
+            font-weight: 500;
+            font-size: 12px;
+            transition: all 0.2s;
+            outline: none;
         }
-        
         .btn-clear:hover {
-            background-color: #E2E8F0;
-            color: #1E293B;
+            border-color: #0072FF;
+            color: #0072FF;
+            background-color: rgba(0, 114, 255, 0.02);
         }
-        
-        .result-title {
-            margin: 0 0 8px 0; 
-            font-size: 14px; 
-            font-weight: 600; 
-            color: #334155;
-        }
-        
         .result-box {
             background-color: #F8FAFC;
-            border: 1px solid #E2E8F0;
-            border-radius: 6px;
-            padding: 12px;
-            font-family: monospace;
-            font-size: 14px;
+            border: 1px solid rgba(49, 51, 63, 0.1);
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            font-size: 13px;
             white-space: pre-wrap;
             word-break: break-all;
-            margin: 0 0 12px 0;
-            height: 180px;
+            height: 125px;
             overflow-y: auto;
             box-sizing: border-box;
+            margin-bottom: 8px;
+            color: #0F172A;
         }
-        
         .btn-copy {
             background: linear-gradient(135deg, #00C6FF 0%, #0072FF 100%);
             color: white;
             border: none;
-            padding: 10px 22px;
-            border-radius: 8px;
+            padding: 7px 16px;
+            border-radius: 6px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 14px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
+            font-size: 12px;
+            box-shadow: 0 2px 4px rgba(0, 114, 255, 0.15);
+            transition: all 0.2s;
+            outline: none;
         }
-        
         .btn-copy:hover {
-            opacity: 0.9;
-            transform: translateY(-1px);
+            opacity: 0.95;
+            transform: translateY(-0.5px);
         }
-        
         .btn-copy:active {
             transform: translateY(0);
         }
-        
         .toast {
-            color: #10B981; 
-            font-weight: 600; 
-            font-size: 14px;
-            align-self: center;
+            color: #10B981;
+            font-weight: 600;
+            font-size: 12px;
             display: none;
+            margin-left: 8px;
         }
-        
         .warning-card {
-            background-color: #FFFBEB; 
-            border: 1px solid #FDE68A; 
-            border-radius: 8px; 
-            padding: 12px; 
-            color: #B45309; 
-            font-size: 14px;
-            display: none;
+            background-color: rgba(49, 51, 63, 0.01);
+            border: 1px dashed rgba(49, 51, 63, 0.15);
+            border-radius: 8px;
+            padding: 16px;
+            color: #64748B;
+            font-size: 13px;
+            text-align: center;
+            height: 125px;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1.4;
         }
     </style>
 </head>
 <body>
-    <div class="info-card">
-        <p class="info-text">請在此貼上包含多個 Model 的電子郵件或雜訊文字。系統會自動過濾 Model 名稱與雜訊，僅提取出純 SN：</p>
-    </div>
-    
-    <label class="label-text">貼上電子郵件或雜亂文字：</label>
-    <textarea id="raw-input" class="text-area" placeholder="例如：
+    <div class="container">
+        <div class="header-text">
+            請在此貼上包含多個 Model 的電子郵件或雜訊文字。系統會自動過濾 Model 名稱與雜訊，即時提取出純 SN：
+        </div>
+        
+        <div class="main-layout">
+            <!-- 左欄：輸入 -->
+            <div class="column">
+                <textarea id="raw-input" class="text-area" placeholder="例如：
 MODEL : EDS-518E-4GTXSFP
 TBFED1009476
 TBFED1009482
@@ -273,22 +259,25 @@ TBFED1009482
 MODEL : IKS-G6524A-4GTXSFP
 TBFAD1056579
 ..."></textarea>
-    
-    <div class="button-row">
-        <button id="clear-btn" class="btn-clear">🗑️ 清除已輸入文字</button>
-    </div>
-    
-    <div id="no-sn-warning" class="warning-card">
-        ⚠️ 未在輸入內容中偵測到符合格式的 SN。請確認是否包含純英數且長度介於 8 至 15 碼。
-    </div>
-    
-    <div id="result-section" style="display: none; margin-top: 15px;">
-        <h5 class="result-title">✨ 整理後的 SN 列表</h5>
-        <div id="result-output" class="result-box"></div>
-        
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <button id="copy-btn" class="btn-copy">📋 複製整理後的 SN 列表</button>
-            <span id="copy-success-msg" class="toast">✓ 已複製到剪貼簿！</span>
+                <div style="margin-top: 8px;">
+                    <button id="clear-btn" class="btn-clear">🗑️ 清除已輸入文字</button>
+                </div>
+            </div>
+            
+            <!-- 右欄：產出 -->
+            <div class="column">
+                <div id="no-sn-warning" class="warning-card">
+                    💡 請在左側輸入或貼上文字，整理後的 SN 將即時顯示在此處。
+                </div>
+                
+                <div id="result-section" style="display: none;">
+                    <div id="result-output" class="result-box"></div>
+                    <div style="display: flex; align-items: center;">
+                        <button id="copy-btn" class="btn-copy">📋 複製整理後的 SN 列表</button>
+                        <span id="copy-success-msg" class="toast">✓ 已複製到剪貼簿！</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -301,18 +290,16 @@ TBFAD1056579
         const copySuccessMsg = document.getElementById('copy-success-msg');
         const noSnWarning = document.getElementById('no-sn-warning');
         
-        // 即時輸入處理事件
         rawInput.addEventListener('input', processInput);
         
         function processInput() {
             const text = rawInput.value;
             if (!text.trim()) {
                 resultSection.style.display = 'none';
-                noSnWarning.style.display = 'none';
+                noSnWarning.style.display = 'flex';
                 return;
             }
             
-            // 使用正則表達式全局搜索 8-15 碼的純英數字 (排除含減號的 Model 名稱)
             const matches = text.match(/\b[a-zA-Z0-9]{8,15}\b/g) || [];
             
             if (matches.length > 0) {
@@ -322,18 +309,16 @@ TBFAD1056579
                 noSnWarning.style.display = 'none';
             } else {
                 resultSection.style.display = 'none';
-                noSnWarning.style.display = 'block';
+                noSnWarning.style.display = 'flex';
             }
         }
         
-        // 清除按鈕事件
         clearBtn.addEventListener('click', () => {
             rawInput.value = '';
             resultSection.style.display = 'none';
-            noSnWarning.style.display = 'none';
+            noSnWarning.style.display = 'flex';
         });
         
-        // 複製按鈕事件
         copyBtn.addEventListener('click', () => {
             const copyText = resultOutput.textContent;
             if (navigator.clipboard && window.isSecureContext) {
@@ -352,7 +337,7 @@ TBFAD1056579
                 document.execCommand("copy");
                 showToast();
             } catch (err) {
-                alert("無法複製，請手動選取結果框中的 SN 進行複製。");
+                alert("無法複製，請手動複製結果。");
             }
             document.body.removeChild(tempTextArea);
         }
@@ -368,7 +353,7 @@ TBFAD1056579
 </html>
 """
 
-st.components.v1.html(step_zero_html, height=530, scrolling=False)
+st.components.v1.html(step_zero_html, height=205, scrolling=False)
 
 st.markdown("---")
 
