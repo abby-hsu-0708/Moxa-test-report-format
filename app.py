@@ -104,107 +104,272 @@ with st.sidebar:
     3. **SN 欄位上限**：同一列最多填入 5 個 SN (顯示於 Q 至 U 欄)。若超出 5 個，則將剩餘的 SN 分拆至下一列展示（左側所有欄位資訊均會重複填入，以利後續資料分析）。
     """)
 
-# 初始化步驟零輸入框的 Session State
-if "sn_email_input" not in st.session_state:
-    st.session_state.sn_email_input = ""
-
-def clear_sn_input():
-    st.session_state.sn_email_input = ""
-
 # 🔍 步驟零：電子郵件 SN 自動提取整理
 st.subheader("🔍 步驟零：電子郵件 SN 自動提取整理")
-with st.container():
-    st.markdown("""
-    <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.2rem; margin-bottom: 1rem;">
-        <p style="font-weight: 600; color: #0F172A; margin: 0 0 0.5rem 0; font-size: 0.95rem;">請在此貼上包含多個 Model 的電子郵件或雜訊文字。系統會自動過濾 Model 名稱與雜訊，僅提取出純 SN：</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    email_input = st.text_area(
-        "貼上電子郵件或雜亂文字：",
-        height=200,
-        placeholder="例如：\nMODEL : EDS-518E-4GTXSFP\nTBFED1009476\nTBFED1009482\n\nMODEL : IKS-G6524A-4GTXSFP\nTBFAD1056579\n...",
-        key="sn_email_input"
-    )
-    
-    # 建立清除按鈕
-    st.button("🗑️ 清除已輸入文字", on_click=clear_sn_input)
-    
-    if email_input.strip():
-        # 使用正則表達式在整段文字中尋找所有獨立的 8-15 碼英數字 SN
-        # \b 代表單字邊界，可自動識別以空格、逗號、分號、換行等分隔之 SN
-        extracted_sns = re.findall(r'\b[a-zA-Z0-9]{8,15}\b', email_input)
+
+# 使用全前端 HTML/JS 實作，以解決 Streamlit 必須按 Ctrl+Enter 才能生效的技術限制。
+# 這樣一來，使用者不論打字或貼上文字，下方都會在一瞬間即時顯示整理後的 SN，不打斷中文輸入法。
+step_zero_html = r"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap');
         
-        if extracted_sns:
-            cleaned_sn_text = "\n".join(extracted_sns)
+        body {
+            font-family: 'Inter', 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: transparent;
+            margin: 0;
+            padding: 0;
+            color: #0F172A;
+            overflow: hidden;
+        }
+        
+        .info-card {
+            background-color: #F8FAFC; 
+            border: 1px solid #E2E8F0; 
+            border-radius: 12px; 
+            padding: 1.2rem; 
+            margin-bottom: 1rem;
+        }
+        
+        .info-text {
+            font-weight: 600; 
+            color: #0F172A; 
+            margin: 0 0 0.5rem 0; 
+            font-size: 0.95rem;
+        }
+        
+        .label-text {
+            font-size: 14px; 
+            font-weight: 500; 
+            color: #334155; 
+            display: block; 
+            margin-bottom: 8px;
+        }
+        
+        .text-area {
+            width: 100%;
+            height: 180px;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #CBD5E1;
+            font-family: inherit;
+            font-size: 14px;
+            box-sizing: border-box;
+            resize: none;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        
+        .text-area:focus {
+            border-color: #0072FF;
+            box-shadow: 0 0 0 3px rgba(0, 114, 255, 0.15);
+        }
+        
+        .button-row {
+            margin-top: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 12px;
+        }
+        
+        .btn-clear {
+            background-color: #F1F5F9;
+            color: #475569;
+            border: 1px solid #E2E8F0;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+        }
+        
+        .btn-clear:hover {
+            background-color: #E2E8F0;
+            color: #1E293B;
+        }
+        
+        .result-title {
+            margin: 0 0 8px 0; 
+            font-size: 14px; 
+            font-weight: 600; 
+            color: #334155;
+        }
+        
+        .result-box {
+            background-color: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 6px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            margin: 0 0 12px 0;
+            height: 180px;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+        
+        .btn-copy {
+            background: linear-gradient(135deg, #00C6FF 0%, #0072FF 100%);
+            color: white;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+        }
+        
+        .btn-copy:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        
+        .btn-copy:active {
+            transform: translateY(0);
+        }
+        
+        .toast {
+            color: #10B981; 
+            font-weight: 600; 
+            font-size: 14px;
+            align-self: center;
+            display: none;
+        }
+        
+        .warning-card {
+            background-color: #FFFBEB; 
+            border: 1px solid #FDE68A; 
+            border-radius: 8px; 
+            padding: 12px; 
+            color: #B45309; 
+            font-size: 14px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="info-card">
+        <p class="info-text">請在此貼上包含多個 Model 的電子郵件或雜訊文字。系統會自動過濾 Model 名稱與雜訊，僅提取出純 SN：</p>
+    </div>
+    
+    <label class="label-text">貼上電子郵件或雜亂文字：</label>
+    <textarea id="raw-input" class="text-area" placeholder="例如：
+MODEL : EDS-518E-4GTXSFP
+TBFED1009476
+TBFED1009482
+
+MODEL : IKS-G6524A-4GTXSFP
+TBFAD1056579
+..."></textarea>
+    
+    <div class="button-row">
+        <button id="clear-btn" class="btn-clear">🗑️ 清除已輸入文字</button>
+    </div>
+    
+    <div id="no-sn-warning" class="warning-card">
+        ⚠️ 未在輸入內容中偵測到符合格式的 SN。請確認是否包含純英數且長度介於 8 至 15 碼。
+    </div>
+    
+    <div id="result-section" style="display: none; margin-top: 15px;">
+        <h5 class="result-title">✨ 整理後的 SN 列表</h5>
+        <div id="result-output" class="result-box"></div>
+        
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <button id="copy-btn" class="btn-copy">📋 複製整理後的 SN 列表</button>
+            <span id="copy-success-msg" class="toast">✓ 已複製到剪貼簿！</span>
+        </div>
+    </div>
+    
+    <script>
+        const rawInput = document.getElementById('raw-input');
+        const clearBtn = document.getElementById('clear-btn');
+        const resultSection = document.getElementById('result-section');
+        const resultOutput = document.getElementById('result-output');
+        const copyBtn = document.getElementById('copy-btn');
+        const copySuccessMsg = document.getElementById('copy-success-msg');
+        const noSnWarning = document.getElementById('no-sn-warning');
+        
+        // 即時輸入處理事件
+        rawInput.addEventListener('input', processInput);
+        
+        function processInput() {
+            const text = rawInput.value;
+            if (!text.trim()) {
+                resultSection.style.display = 'none';
+                noSnWarning.style.display = 'none';
+                return;
+            }
             
-            st.markdown("##### ✨ 整理後的 SN 列表")
+            // 使用正則表達式全局搜索 8-15 碼的純英數字 (排除含減號的 Model 名稱)
+            const matches = text.match(/\b[a-zA-Z0-9]{8,15}\b/g) || [];
             
-            # 使用 st.code 展示整理後的 SN 列表，不帶空行，並支持原生複製
-            st.code(cleaned_sn_text, language="text")
-            
-            escaped_text = html.escape(cleaned_sn_text)
-            
-            # 渲染一個外觀非常現代、獨立的「複製整理後的 SN 列表」按鈕
-            copy_button_html = f"""
-            <div style="margin-top: 10px; margin-bottom: 15px;">
-                <textarea id="sn-clipboard-data" style="display:none;">{escaped_text}</textarea>
-                <button onclick="copyToClipboard()" style="
-                    background: linear-gradient(135deg, #00C6FF 0%, #0072FF 100%);
-                    color: white;
-                    border: none;
-                    padding: 10px 22px;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    font-weight: 600;
-                    font-size: 14px;
-                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-                    transition: all 0.2s ease;
-                    font-family: system-ui, -apple-system, sans-serif;
-                " onmouseover="this.style.opacity=0.9" onmouseout="this.style.opacity=1.0">
-                    📋 複製整理後的 SN 列表
-                </button>
-                <span id="copy-success-msg" style="margin-left: 12px; color: #10B981; font-weight: 600; display: none; font-family: system-ui, -apple-system, sans-serif; font-size: 14px;">✓ 已複製到剪貼簿！</span>
-            </div>
-            <script>
-            function copyToClipboard() {{
-                const copyText = document.getElementById("sn-clipboard-data");
-                if (navigator.clipboard && window.isSecureContext) {{
-                    navigator.clipboard.writeText(copyText.value).then(function() {{
-                        showToast();
-                    }}).catch(function(err) {{
-                        fallbackCopy(copyText);
-                    }});
-                }} else {{
-                    fallbackCopy(copyText);
-                }}
-            }}
-            function fallbackCopy(copyText) {{
-                const tempTextArea = document.createElement("textarea");
-                tempTextArea.value = copyText.value;
-                document.body.appendChild(tempTextArea);
-                tempTextArea.select();
-                try {{
-                    document.execCommand("copy");
-                    showToast();
-                }} catch (err) {{
-                    alert("無法複製，請手動複製程式碼區塊中的 SN。");
-                }}
-                document.body.removeChild(tempTextArea);
-            }}
-            function showToast() {{
-                const msg = document.getElementById("copy-success-msg");
-                msg.style.display = "inline";
-                setTimeout(function() {{
-                    msg.style.display = "none";
-                }}, 2000);
-            }}
-            </script>
-            """
-            st.components.v1.html(copy_button_html, height=65, scrolling=False)
-        else:
-            st.warning("⚠️ 未在輸入內容中偵測到符合格式的 SN。請確認每行是否為純英數且長度介於 8 至 15 碼。")
-            
+            if (matches.length > 0) {
+                const cleanedText = matches.join('\n');
+                resultOutput.textContent = cleanedText;
+                resultSection.style.display = 'block';
+                noSnWarning.style.display = 'none';
+            } else {
+                resultSection.style.display = 'none';
+                noSnWarning.style.display = 'block';
+            }
+        }
+        
+        // 清除按鈕事件
+        clearBtn.addEventListener('click', () => {
+            rawInput.value = '';
+            resultSection.style.display = 'none';
+            noSnWarning.style.display = 'none';
+        });
+        
+        // 複製按鈕事件
+        copyBtn.addEventListener('click', () => {
+            const copyText = resultOutput.textContent;
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(copyText).then(showToast).catch(fallbackCopy);
+            } else {
+                fallbackCopy();
+            }
+        });
+        
+        function fallbackCopy() {
+            const tempTextArea = document.createElement("textarea");
+            tempTextArea.value = resultOutput.textContent;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            try {
+                document.execCommand("copy");
+                showToast();
+            } catch (err) {
+                alert("無法複製，請手動選取結果框中的 SN 進行複製。");
+            }
+            document.body.removeChild(tempTextArea);
+        }
+        
+        function showToast() {
+            copySuccessMsg.style.display = 'inline';
+            setTimeout(() => {
+                copySuccessMsg.style.display = 'none';
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
+"""
+
+st.components.v1.html(step_zero_html, height=530, scrolling=False)
+
 st.markdown("---")
 
 # 主內容區：上傳 SN Data 檔案
