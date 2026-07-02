@@ -296,11 +296,12 @@ TBFAD1056579
             const text = rawInput.value;
             if (!text.trim()) {
                 resultSection.style.display = 'none';
-                noSnWarning.style.display = 'flex';
+                resetWarningCard();
                 return;
             }
             
-            const matches = text.match(/\b[a-zA-Z0-9]{8,15}\b/g) || [];
+            // 使用正則表達式全局搜索首位為英文字母、總長度 8-15 碼且含數字的英數字 (排除純數字如 45645645645 與純英文如 attached)
+            const matches = text.match(/\b(?=.*[0-9])[a-zA-Z][a-zA-Z0-9]{7,14}\b/g) || [];
             
             if (matches.length > 0) {
                 const cleanedText = matches.join('\n');
@@ -309,14 +310,27 @@ TBFAD1056579
                 noSnWarning.style.display = 'none';
             } else {
                 resultSection.style.display = 'none';
+                // 提示錯誤：未偵測到符合格式的 SN
+                noSnWarning.innerHTML = '❌ 偵測錯誤：輸入的內容中未偵測到任何符合格式的 SN（首字需為英文、總長度 8-15 碼且包含數字之英數組合）。';
+                noSnWarning.style.backgroundColor = '#FFFBEB';
+                noSnWarning.style.borderColor = '#FDE68A';
+                noSnWarning.style.color = '#B45309';
                 noSnWarning.style.display = 'flex';
             }
+        }
+        
+        function resetWarningCard() {
+            noSnWarning.innerHTML = '💡 請在左側輸入或貼上文字，整理後的 SN 將即時顯示在此處。';
+            noSnWarning.style.backgroundColor = 'rgba(49, 51, 63, 0.01)';
+            noSnWarning.style.borderColor = 'rgba(49, 51, 63, 0.15)';
+            noSnWarning.style.color = '#64748B';
+            noSnWarning.style.display = 'flex';
         }
         
         clearBtn.addEventListener('click', () => {
             rawInput.value = '';
             resultSection.style.display = 'none';
-            noSnWarning.style.display = 'flex';
+            resetWarningCard();
         });
         
         copyBtn.addEventListener('click', () => {
